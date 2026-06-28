@@ -1,0 +1,16 @@
+# Render Blueprint — deploy at https://dashboard.render.com/blueprints
+# Connect this GitHub repo, then set ADMIN_PASSWORD when prompted.
+
+services:
+  - type: web
+    name: lakkis-catalog
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ADMIN_PASSWORD
+        sync: false

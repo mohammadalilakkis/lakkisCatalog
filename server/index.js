@@ -6,6 +6,8 @@ import fs from "fs";
 import dotenv from "dotenv";
 import productsRouter from "./routes/products.js";
 import authRouter from "./routes/auth.js";
+import inquiriesRouter from "./routes/inquiries.js";
+import analyticsRouter from "./routes/analytics.js";
 
 dotenv.config();
 
@@ -25,6 +27,8 @@ app.use("/uploads", express.static(uploadsDir));
 
 app.use("/api/auth", authRouter);
 app.use("/api/products", productsRouter);
+app.use("/api/inquiries", inquiriesRouter);
+app.use("/api/analytics", analyticsRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });

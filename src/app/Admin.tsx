@@ -1,19 +1,40 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router";
-import { Plus, Pencil, Trash2, LogOut, Upload, X, Star } from "lucide-react";
+import { Plus, Pencil, Trash2, LogOut, Upload, X, Star, Mail, BarChart3, Package, Check, RefreshCw } from "lucide-react";
 import {
   Product,
+  Inquiry,
+  SiteAnalytics,
   fetchProducts,
+  fetchInquiries,
+  fetchAnalytics,
   createProduct,
   updateProduct,
   uploadProductImage,
   deleteProduct,
+  deleteInquiry,
+  markInquiryRead,
   getToken,
   clearToken,
   login,
 } from "./api";
 
 const CATEGORY_OPTIONS = ["Doors", "Drawers", "Wall Panels", "Decorative"];
+type AdminTab = "catalog" | "inquiries" | "analytics";
+
+function formatBytes(bytes: number) {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / 1024 ** i).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
 
 const emptyForm = {
   id: "",
@@ -281,8 +302,307 @@ function ProductForm({
   );
 }
 
+function InquiriesPanel() {
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<number | null>(null);
+
+  const loadInquiries = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchInquiries();
+      setInquiries(data.inquiries);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to load inquiries");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadInquiries();
+  }, [loadInquiries]);
+
+  const handleMarkRead = async (id: number) => {
+    try {
+      await markInquiryRead(id, true);
+      await loadInquiries();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update inquiry");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Delete this inquiry permanently?")) return;
+    setDeleting(id);
+    try {
+      await deleteInquiry(id);
+      await loadInquiries();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  if (loading) {
+    return <p className="text-muted-foreground text-center py-20">Loading inquiries...</p>;
+  }
+
+  if (inquiries.length === 0) {
+    return (
+      <div className="text-center py-20 border border-border bg-card">
+        <Mail size={32} className="mx-auto mb-4 text-muted-foreground" />
+        <p className="text-muted-foreground">No inquiries yet.</p>
+        <p className="text-muted-foreground text-sm mt-2">Messages from the contact form will appear here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-muted-foreground text-sm">
+          {inquiries.filter((i) => !i.read).length} unread · {inquiries.length} total
+        </p>
+        <button
+          onClick={loadInquiries}
+          className="flex items-center gap-2 px-3 py-2 border border-border hover:border-primary text-sm text-muted-foreground"
+        >
+          <RefreshCw size={14} /> Refresh
+        </button>
+      </div>
+      {inquiries.map((inquiry) => (
+        <div
+          key={inquiry.id}
+          className={`border bg-card p-6 ${inquiry.read ? "border-border" : "border-primary/50"}`}
+        >
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", fontWeight: 600 }}>
+                  {inquiry.firstName} {inquiry.lastName}
+                </h3>
+                {!inquiry.read && (
+                  <span className="bg-primary text-background px-2 py-0.5 text-xs" style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", letterSpacing: "0.15em" }}>
+                    NEW
+                  </span>
+                )}
+              </div>
+              <p className="text-muted-foreground text-sm">{inquiry.email}</p>
+              <p className="text-muted-foreground text-xs mt-1" style={{ fontFamily: "'DM Mono', monospace" }}>
+                {formatDate(inquiry.createdAt)}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {!inquiry.read && (
+                <button
+                  onClick={() => handleMarkRead(inquiry.id)}
+                  className="flex items-center gap-2 px-3 py-2 border border-border hover:border-primary text-sm"
+                >
+                  <Check size={14} /> Mark read
+                </button>
+              )}
+              <button
+                onClick={() => handleDelete(inquiry.id)}
+                disabled={deleting === inquiry.id}
+                className="flex items-center gap-2 px-3 py-2 border border-border hover:border-red-400 hover:text-red-400 text-sm disabled:opacity-50"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+          {inquiry.projectType && (
+            <p className="mb-3" style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", color: "var(--primary)" }}>
+              PROJECT: {inquiry.projectType.toUpperCase()}
+            </p>
+          )}
+          {inquiry.message ? (
+            <p className="text-foreground/80 leading-relaxed whitespace-pre-wrap">{inquiry.message}</p>
+          ) : (
+            <p className="text-muted-foreground italic text-sm">No message provided.</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StatCard({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
+  return (
+    <div className="border border-border bg-card p-6">
+      <p className="text-muted-foreground mb-2" style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", letterSpacing: "0.2em" }}>
+        {label}
+      </p>
+      <p className="text-primary mb-1" style={{ fontFamily: "'Playfair Display', serif", fontSize: "32px", fontWeight: 700 }}>
+        {value}
+      </p>
+      {hint && <p className="text-muted-foreground text-sm">{hint}</p>}
+    </div>
+  );
+}
+
+function AnalyticsPanel() {
+  const [analytics, setAnalytics] = useState<SiteAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadAnalytics = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchAnalytics();
+      setAnalytics(data.analytics);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to load analytics");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [loadAnalytics]);
+
+  if (loading || !analytics) {
+    return <p className="text-muted-foreground text-center py-20">Loading analytics...</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-10">
+      <div className="flex items-center justify-between">
+        <p className="text-muted-foreground text-sm">Overview of catalog, inquiries, and storage</p>
+        <button
+          onClick={loadAnalytics}
+          className="flex items-center gap-2 px-3 py-2 border border-border hover:border-primary text-sm text-muted-foreground"
+        >
+          <RefreshCw size={14} /> Refresh
+        </button>
+      </div>
+
+      <div>
+        <h2 className="mb-4" style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", fontWeight: 600 }}>
+          Catalog
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="TOTAL PRODUCTS" value={analytics.catalog.totalProducts} />
+          <StatCard label="FEATURED" value={analytics.catalog.featuredProducts} />
+          <StatCard label="WITH IMAGES" value={analytics.catalog.withImage} />
+          <StatCard label="MISSING IMAGES" value={analytics.catalog.withoutImage} />
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-4" style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", fontWeight: 600 }}>
+          Inquiries
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <StatCard label="TOTAL INQUIRIES" value={analytics.inquiries.total} />
+          <StatCard label="UNREAD" value={analytics.inquiries.unread} />
+          <StatCard label="CATEGORIES" value={analytics.catalog.categories.length} hint={analytics.catalog.categories.join(", ") || "None"} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="border border-border bg-card p-6">
+          <h3 className="mb-4" style={{ fontFamily: "'Playfair Display', serif", fontSize: "18px", fontWeight: 600 }}>
+            Products by category
+          </h3>
+          {analytics.catalog.productsByCategory.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No products yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {analytics.catalog.productsByCategory.map((row) => (
+                <li key={row.category} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
+                  <span>{row.category}</span>
+                  <span className="text-primary">{row.count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="border border-border bg-card p-6">
+          <h3 className="mb-4" style={{ fontFamily: "'Playfair Display', serif", fontSize: "18px", fontWeight: 600 }}>
+            Inquiries by project type
+          </h3>
+          {analytics.inquiries.byProjectType.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No inquiries yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {analytics.inquiries.byProjectType.map((row) => (
+                <li key={row.projectType} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
+                  <span>{row.projectType}</span>
+                  <span className="text-primary">{row.count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-4" style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", fontWeight: 600 }}>
+          Storage & site
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="UPLOADED FILES" value={analytics.storage.uploadsCount} />
+          <StatCard label="UPLOADS SIZE" value={formatBytes(analytics.storage.uploadsSizeBytes)} />
+          <StatCard label="DATABASE SIZE" value={formatBytes(analytics.storage.databaseSizeBytes)} />
+          <StatCard
+            label="ENVIRONMENT"
+            value={analytics.site.environment}
+            hint={analytics.site.hasCustomAdminPassword ? "Custom admin password set" : "Using default admin password"}
+          />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+          <StatCard label="HOSTED IMAGES" value={analytics.catalog.uploadedImages} hint="Stored on server" />
+          <StatCard label="EXTERNAL IMAGES" value={analytics.catalog.externalImages} hint="URLs (e.g. Unsplash)" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="border border-border bg-card p-6">
+          <h3 className="mb-4" style={{ fontFamily: "'Playfair Display', serif", fontSize: "18px", fontWeight: 600 }}>
+            Recent products
+          </h3>
+          {analytics.catalog.recentProducts.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No products yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {analytics.catalog.recentProducts.map((product) => (
+                <li key={product.id} className="text-sm border-b border-border pb-2 last:border-0">
+                  <span className="font-medium">{product.name}</span>
+                  <span className="text-muted-foreground"> · {product.category}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="border border-border bg-card p-6">
+          <h3 className="mb-4" style={{ fontFamily: "'Playfair Display', serif", fontSize: "18px", fontWeight: 600 }}>
+            Recent inquiries
+          </h3>
+          {analytics.inquiries.recent.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No inquiries yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {analytics.inquiries.recent.map((inquiry) => (
+                <li key={inquiry.id} className="text-sm border-b border-border pb-2 last:border-0">
+                  <span className="font-medium">{inquiry.firstName} {inquiry.lastName}</span>
+                  <span className="text-muted-foreground"> · {inquiry.projectType || "No type"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Admin() {
   const [authenticated, setAuthenticated] = useState(!!getToken());
+  const [activeTab, setActiveTab] = useState<AdminTab>("catalog");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Product | null | "new">(null);
@@ -301,8 +621,8 @@ export default function Admin() {
   }, []);
 
   useEffect(() => {
-    if (authenticated) loadProducts();
-  }, [authenticated, loadProducts]);
+    if (authenticated && activeTab === "catalog") loadProducts();
+  }, [authenticated, activeTab, loadProducts]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this item permanently?")) return;
@@ -329,34 +649,66 @@ export default function Admin() {
   return (
     <div className="min-h-screen bg-background text-foreground" style={{ fontFamily: "'Raleway', sans-serif" }}>
       <header className="border-b border-border bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
-          <div>
-            <p className="text-primary" style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.3em" }}>
-              CATALOG ADMIN
-            </p>
-            <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "24px", fontWeight: 600 }}>
-              Manage Items
-            </h1>
+        <div className="max-w-7xl mx-auto px-6 py-5">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+            <div>
+              <p className="text-primary" style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.3em" }}>
+                CATALOG ADMIN
+              </p>
+              <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "24px", fontWeight: 600 }}>
+                {activeTab === "catalog" && "Manage Items"}
+                {activeTab === "inquiries" && "Inquiries"}
+                {activeTab === "analytics" && "Site Analysis"}
+              </h1>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link to="/" className="text-sm text-muted-foreground hover:text-primary">
+                View site
+              </Link>
+              {activeTab === "catalog" && (
+                <button
+                  onClick={() => setEditing("new")}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-background hover:bg-primary/90"
+                  style={{ fontSize: "11px", letterSpacing: "0.15em", fontWeight: 600 }}
+                >
+                  <Plus size={14} /> ADD ITEM
+                </button>
+              )}
+              <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 border border-border hover:border-primary text-muted-foreground">
+                <LogOut size={14} />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Link to="/" className="text-sm text-muted-foreground hover:text-primary">
-              View site
-            </Link>
-            <button
-              onClick={() => setEditing("new")}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-background hover:bg-primary/90"
-              style={{ fontSize: "11px", letterSpacing: "0.15em", fontWeight: 600 }}
-            >
-              <Plus size={14} /> ADD ITEM
-            </button>
-            <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 border border-border hover:border-primary text-muted-foreground">
-              <LogOut size={14} />
-            </button>
+
+          <div className="flex flex-wrap gap-0 border border-border w-fit">
+            {([
+              { id: "catalog" as const, label: "Catalog", icon: Package },
+              { id: "inquiries" as const, label: "Inquiries", icon: Mail },
+              { id: "analytics" as const, label: "Analysis", icon: BarChart3 },
+            ]).map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`flex items-center gap-2 px-5 py-3 border-r border-border last:border-r-0 transition-colors ${
+                  activeTab === id
+                    ? "bg-primary text-background"
+                    : "bg-transparent text-foreground/60 hover:text-primary"
+                }`}
+                style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.15em" }}
+              >
+                <Icon size={14} />
+                {label.toUpperCase()}
+              </button>
+            ))}
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-10">
+        {activeTab === "inquiries" && <InquiriesPanel />}
+        {activeTab === "analytics" && <AnalyticsPanel />}
+        {activeTab === "catalog" && (
+          <>
         {loading ? (
           <p className="text-muted-foreground text-center py-20">Loading catalog...</p>
         ) : products.length === 0 ? (
@@ -416,6 +768,8 @@ export default function Admin() {
               </div>
             ))}
           </div>
+        )}
+          </>
         )}
       </main>
 

@@ -35,6 +35,17 @@ db.exec(`
     key TEXT PRIMARY KEY,
     value TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS inquiries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    project_type TEXT,
+    message TEXT,
+    read INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 const productCount = db.prepare("SELECT COUNT(*) as count FROM products").get();
@@ -277,6 +288,151 @@ export function deleteProduct(id) {
 export function generateProductId() {
   const count = db.prepare("SELECT COUNT(*) as count FROM products").get().count;
   return `LAK-${String(count + 1).padStart(3, "0")}`;
+}
+
+function rowToInquiry(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    email: row.email,
+    projectType: row.project_type || "",
+    message: row.message || "",
+    read: Boolean(row.read),
+    createdAt: row.created_at,
+  };
+}
+
+export function createInquiry(data) {
+  const result = db
+    .prepare(
+      `INSERT INTO inquiries (first_name, last_name, email, project_type, message)
+       VALUES (@firstName, @lastName, @email, @projectType, @message)`
+    )
+    .run({
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      projectType: data.projectType || "",
+      message: data.message || "",
+    });
+
+  return getInquiryById(result.lastInsertRowid);
+}
+
+export function getInquiryById(id) {
+  const row = db.prepare("SELECT * FROM inquiries WHERE id = ?").get(id);
+  return rowToInquiry(row);
+}
+
+export function getAllInquiries() {
+  const rows = db
+    .prepare("SELECT * FROM inquiries ORDER BY created_at DESC")
+    .all();
+  return rows.map(rowToInquiry);
+}
+
+export function deleteInquiry(id) {
+  const result = db.prepare("DELETE FROM inquiries WHERE id = ?").run(id);
+  return result.changes > 0;
+}
+
+export function markInquiryRead(id, read = true) {
+  const result = db
+    .prepare("UPDATE inquiries SET read = ? WHERE id = ?")
+    .run(read ? 1 : 0, id);
+  return result.changes > 0 ? getInquiryById(id) : null;
+}
+
+function getUploadsStats() {
+  const uploadsDir = path.join(__dirname, "..", "uploads");
+  if (!fs.existsSync(uploadsDir)) {
+    return { count: 0, totalBytes: 0 };
+  }
+
+  let count = 0;
+  let totalBytes = 0;
+  for (const file of fs.readdirSync(uploadsDir)) {
+    const filePath = path.join(uploadsDir, file);
+    const stat = fs.statSync(filePath);
+    if (stat.isFile()) {
+      count += 1;
+      totalBytes += stat.size;
+    }
+  }
+
+  return { count, totalBytes };
+}
+
+export function getSiteAnalytics() {
+  const totalProducts = db.prepare("SELECT COUNT(*) as count FROM products").get().count;
+  const featuredProducts = db
+    .prepare("SELECT COUNT(*) as count FROM products WHERE featured = 1")
+    .get().count;
+  const withImage = db
+    .prepare("SELECT COUNT(*) as count FROM products WHERE image IS NOT NULL AND image != ''")
+    .get().count;
+  const withoutImage = totalProducts - withImage;
+  const uploadedImages = db
+    .prepare("SELECT COUNT(*) as count FROM products WHERE image LIKE '/uploads/%'")
+    .get().count;
+  const externalImages = withImage - uploadedImages;
+
+  const productsByCategory = db
+    .prepare(
+      "SELECT category, COUNT(*) as count FROM products GROUP BY category ORDER BY count DESC"
+    )
+    .all()
+    .map((row) => ({ category: row.category, count: row.count }));
+
+  const totalInquiries = db.prepare("SELECT COUNT(*) as count FROM inquiries").get().count;
+  const unreadInquiries = db
+    .prepare("SELECT COUNT(*) as count FROM inquiries WHERE read = 0")
+    .get().count;
+  const inquiriesByProjectType = db
+    .prepare(
+      `SELECT COALESCE(NULLIF(project_type, ''), 'Unspecified') as project_type, COUNT(*) as count
+       FROM inquiries GROUP BY project_type ORDER BY count DESC`
+    )
+    .all()
+    .map((row) => ({ projectType: row.project_type, count: row.count }));
+
+  const recentInquiries = getAllInquiries().slice(0, 5);
+  const recentProducts = getAllProducts().slice(0, 5);
+  const categories = getCategories().filter((c) => c !== "All");
+  const uploads = getUploadsStats();
+
+  const dbStat = fs.existsSync(dbPath) ? fs.statSync(dbPath) : null;
+
+  return {
+    catalog: {
+      totalProducts,
+      featuredProducts,
+      withImage,
+      withoutImage,
+      uploadedImages,
+      externalImages,
+      productsByCategory,
+      categories,
+      recentProducts,
+    },
+    inquiries: {
+      total: totalInquiries,
+      unread: unreadInquiries,
+      byProjectType: inquiriesByProjectType,
+      recent: recentInquiries,
+    },
+    storage: {
+      uploadsCount: uploads.count,
+      uploadsSizeBytes: uploads.totalBytes,
+      databaseSizeBytes: dbStat?.size ?? 0,
+    },
+    site: {
+      environment: process.env.NODE_ENV || "development",
+      hasCustomAdminPassword: Boolean(process.env.ADMIN_PASSWORD),
+    },
+  };
 }
 
 export default db;

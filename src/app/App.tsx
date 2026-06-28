@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Menu, X, ArrowRight, ChevronRight, Phone, Mail, MapPin, Star } from "lucide-react";
-import { fetchProducts, type Product } from "./api";
+import { Menu, X, ArrowRight, ChevronRight, Phone, Mail, MapPin, Star, Instagram } from "lucide-react";
+import { fetchProducts, submitInquiry, type Product } from "./api";
 
 const PROCESS_STEPS = [
   { number: "01", title: "Consultation", body: "We meet to understand your space, style, and functional needs. Every project begins with listening." },
@@ -38,6 +38,16 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>(["All", "Doors", "Drawers", "Wall Panels", "Decorative"]);
   const [catalogLoading, setCatalogLoading] = useState(true);
+  const [inquiryForm, setInquiryForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    projectType: "",
+    message: "",
+  });
+  const [inquirySubmitting, setInquirySubmitting] = useState(false);
+  const [inquiryStatus, setInquiryStatus] = useState<"idle" | "success" | "error">("idle");
+  const [inquiryError, setInquiryError] = useState("");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60);
@@ -58,6 +68,30 @@ export default function App() {
   const filtered = activeCategory === "All"
     ? products
     : products.filter((p) => p.category === activeCategory);
+
+  const handleInquirySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInquirySubmitting(true);
+    setInquiryStatus("idle");
+    setInquiryError("");
+
+    try {
+      await submitInquiry(inquiryForm);
+      setInquiryStatus("success");
+      setInquiryForm({
+        firstName: "",
+        lastName: "",
+        email: "",
+        projectType: "",
+        message: "",
+      });
+    } catch (err) {
+      setInquiryStatus("error");
+      setInquiryError(err instanceof Error ? err.message : "Failed to send inquiry");
+    } finally {
+      setInquirySubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden" style={{ fontFamily: "'Raleway', sans-serif" }}>
@@ -144,14 +178,14 @@ export default function App() {
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 pb-24 w-full">
           <div className="max-w-3xl">
             <p className="text-primary mb-6" style={{ fontFamily: "'DM Mono', monospace", fontSize: "11px", letterSpacing: "0.35em" }}>
-              CUSTOM CNC WOODWORK — PRECISION & ARTISTRY
+              CUSTOM CNC WOODWORK & SAWMILL — PRECISION & ARTISTRY
             </p>
             <h1 className="mb-8 leading-[0.92]" style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(52px, 8vw, 96px)", fontWeight: 700, color: "#F0E6CC" }}>
               Where Wood<br />
               <em style={{ fontStyle: "italic", color: "#C9A96E" }}>Becomes Art</em>
             </h1>
             <p className="text-foreground/60 mb-12 max-w-lg leading-relaxed" style={{ fontSize: "16px", fontWeight: 300 }}>
-              Bespoke doors, drawers, wall panels, and decorative pieces crafted with CNC precision and the hand of a master artisan. Each piece is made to last generations.
+              Bespoke doors, drawers, wall panels, and decorative pieces crafted with CNC precision and the hand of a master artisan — plus full wood sawmill work for every cut, dimension, and finish your project needs.
             </p>
             <div className="flex flex-wrap gap-4">
               <a
@@ -323,7 +357,7 @@ export default function App() {
                 <em style={{ fontStyle: "italic", color: "#C9A96E" }}>Precision</em>
               </h2>
               <p className="text-foreground/60 mb-12 leading-relaxed" style={{ fontWeight: 300, fontSize: "15px" }}>
-                Every Lakkis piece follows a rigorous journey — from the first conversation to the moment it is installed in your space. We never cut corners, only wood.
+                Every Lakkis piece follows a rigorous journey — from the first conversation to the moment it is installed in your space. We never cut corners, only wood. Our workshop handles all wood sawmill work in-house, from raw timber to finished piece.
               </p>
 
               <div className="flex flex-col gap-8">
@@ -475,9 +509,9 @@ export default function App() {
                   Share your vision with us. We respond to every inquiry within 24 hours with an initial consultation proposal.
                 </p>
                 <div className="flex flex-col gap-4">
-                  <a href="tel:+1234567890" className="flex items-center gap-3 text-foreground/60 hover:text-primary transition-colors group">
+                  <a href="tel:+96176088010" className="flex items-center gap-3 text-foreground/60 hover:text-primary transition-colors group">
                     <Phone size={14} className="text-primary" />
-                    <span style={{ fontSize: "14px", fontWeight: 300 }}>+1 (234) 567-8900</span>
+                    <span style={{ fontSize: "14px", fontWeight: 300 }}>+961 76088010</span>
                   </a>
                   <a href="mailto:studio@lakkis.com" className="flex items-center gap-3 text-foreground/60 hover:text-primary transition-colors">
                     <Mail size={14} className="text-primary" />
@@ -485,12 +519,12 @@ export default function App() {
                   </a>
                   <div className="flex items-center gap-3 text-foreground/60">
                     <MapPin size={14} className="text-primary flex-shrink-0" />
-                    <span style={{ fontSize: "14px", fontWeight: 300 }}>12 Craft District, Workshop Row, Berlin</span>
+                    <span style={{ fontSize: "14px", fontWeight: 300 }}>Baalbeck, Sheikh Habib Street, near Baraa Pharmacy</span>
                   </div>
                 </div>
               </div>
 
-              <form className="flex flex-col gap-4" onSubmit={(e) => e.preventDefault()}>
+              <form className="flex flex-col gap-4" onSubmit={handleInquirySubmit}>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-muted-foreground mb-2" style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", letterSpacing: "0.25em" }}>
@@ -498,9 +532,12 @@ export default function App() {
                     </label>
                     <input
                       type="text"
+                      value={inquiryForm.firstName}
+                      onChange={(e) => setInquiryForm({ ...inquiryForm, firstName: e.target.value })}
                       className="w-full bg-muted border border-border text-foreground px-4 py-3 focus:outline-none focus:border-primary transition-colors"
                       style={{ fontSize: "14px", fontWeight: 300 }}
                       placeholder="James"
+                      required
                     />
                   </div>
                   <div>
@@ -509,9 +546,12 @@ export default function App() {
                     </label>
                     <input
                       type="text"
+                      value={inquiryForm.lastName}
+                      onChange={(e) => setInquiryForm({ ...inquiryForm, lastName: e.target.value })}
                       className="w-full bg-muted border border-border text-foreground px-4 py-3 focus:outline-none focus:border-primary transition-colors"
                       style={{ fontSize: "14px", fontWeight: 300 }}
                       placeholder="Wright"
+                      required
                     />
                   </div>
                 </div>
@@ -521,9 +561,12 @@ export default function App() {
                   </label>
                   <input
                     type="email"
+                    value={inquiryForm.email}
+                    onChange={(e) => setInquiryForm({ ...inquiryForm, email: e.target.value })}
                     className="w-full bg-muted border border-border text-foreground px-4 py-3 focus:outline-none focus:border-primary transition-colors"
                     style={{ fontSize: "14px", fontWeight: 300 }}
                     placeholder="james@example.com"
+                    required
                   />
                 </div>
                 <div>
@@ -531,6 +574,8 @@ export default function App() {
                     PROJECT TYPE
                   </label>
                   <select
+                    value={inquiryForm.projectType}
+                    onChange={(e) => setInquiryForm({ ...inquiryForm, projectType: e.target.value })}
                     className="w-full bg-muted border border-border text-foreground px-4 py-3 focus:outline-none focus:border-primary transition-colors appearance-none"
                     style={{ fontSize: "14px", fontWeight: 300 }}
                   >
@@ -548,17 +593,26 @@ export default function App() {
                   </label>
                   <textarea
                     rows={4}
+                    value={inquiryForm.message}
+                    onChange={(e) => setInquiryForm({ ...inquiryForm, message: e.target.value })}
                     className="w-full bg-muted border border-border text-foreground px-4 py-3 focus:outline-none focus:border-primary transition-colors resize-none"
                     style={{ fontSize: "14px", fontWeight: 300 }}
                     placeholder="Describe your project, dimensions, materials, or any inspiration..."
                   />
                 </div>
+                {inquiryStatus === "success" && (
+                  <p className="text-primary text-sm">Thank you — your inquiry has been sent. We will respond within 24 hours.</p>
+                )}
+                {inquiryStatus === "error" && (
+                  <p className="text-red-400 text-sm">{inquiryError}</p>
+                )}
                 <button
                   type="submit"
-                  className="flex items-center justify-center gap-3 w-full py-4 bg-primary text-background hover:bg-primary/90 transition-all duration-300 group mt-2"
+                  disabled={inquirySubmitting}
+                  className="flex items-center justify-center gap-3 w-full py-4 bg-primary text-background hover:bg-primary/90 transition-all duration-300 group mt-2 disabled:opacity-50"
                   style={{ fontSize: "11px", letterSpacing: "0.3em", fontWeight: 600 }}
                 >
-                  SEND INQUIRY
+                  {inquirySubmitting ? "SENDING..." : "SEND INQUIRY"}
                   <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </form>
@@ -575,9 +629,21 @@ export default function App() {
               <div className="flex items-center gap-3 mb-6">
                 <span style={{ fontFamily: "'Playfair Display', serif", fontSize: "28px", fontWeight: 600, letterSpacing: "0.12em" }}>LAKKIS</span>
               </div>
-              <p className="text-foreground/50 leading-relaxed max-w-sm" style={{ fontWeight: 300, fontSize: "14px" }}>
-                Master woodworkers and CNC artisans creating bespoke pieces for private residences, hotels, and hospitality spaces worldwide since 2009.
+              <p className="text-foreground/50 leading-relaxed max-w-sm mb-8" style={{ fontWeight: 300, fontSize: "14px" }}>
+                Master woodworkers and CNC artisans creating bespoke pieces for private residences, hotels, and hospitality spaces worldwide since 2009 — with full wood sawmill work for every project.
               </p>
+              <div>
+                <p className="text-primary mb-4" style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", letterSpacing: "0.3em" }}>SOCIAL</p>
+                <a
+                  href="https://www.instagram.com/lignea.official?igsh=MW03cjdhMWJuMjZsdQ=="
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Follow Lignea on Instagram"
+                  className="inline-flex items-center justify-center w-10 h-10 border border-border text-foreground/60 hover:border-primary hover:text-primary transition-colors duration-200"
+                >
+                  <Instagram size={18} />
+                </a>
+              </div>
             </div>
 
             <div>

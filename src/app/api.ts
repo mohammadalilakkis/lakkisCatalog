@@ -13,6 +13,46 @@ export interface Product {
   updatedAt?: string;
 }
 
+export interface Inquiry {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  projectType: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface SiteAnalytics {
+  catalog: {
+    totalProducts: number;
+    featuredProducts: number;
+    withImage: number;
+    withoutImage: number;
+    uploadedImages: number;
+    externalImages: number;
+    productsByCategory: { category: string; count: number }[];
+    categories: string[];
+    recentProducts: Product[];
+  };
+  inquiries: {
+    total: number;
+    unread: number;
+    byProjectType: { projectType: string; count: number }[];
+    recent: Inquiry[];
+  };
+  storage: {
+    uploadsCount: number;
+    uploadsSizeBytes: number;
+    databaseSizeBytes: number;
+  };
+  site: {
+    environment: string;
+    hasCustomAdminPassword: boolean;
+  };
+}
+
 const TOKEN_KEY = "catalog_admin_token";
 
 export function getToken(): string | null {
@@ -92,4 +132,38 @@ export async function deleteProduct(id: string) {
   return request<{ success: boolean }>(`/api/products/${id}`, {
     method: "DELETE",
   });
+}
+
+export async function submitInquiry(data: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  projectType: string;
+  message: string;
+}) {
+  return request<{ inquiry: Inquiry }>("/api/inquiries", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchInquiries() {
+  return request<{ inquiries: Inquiry[] }>("/api/inquiries");
+}
+
+export async function markInquiryRead(id: number, read = true) {
+  return request<{ inquiry: Inquiry }>(`/api/inquiries/${id}/read`, {
+    method: "PATCH",
+    body: JSON.stringify({ read }),
+  });
+}
+
+export async function deleteInquiry(id: number) {
+  return request<{ success: boolean }>(`/api/inquiries/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function fetchAnalytics() {
+  return request<{ analytics: SiteAnalytics }>("/api/analytics");
 }
