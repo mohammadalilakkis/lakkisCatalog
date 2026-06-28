@@ -36,7 +36,7 @@ export default function App() {
   const [scrolled, setScrolled] = useState(false);
   const [hoveredProduct, setHoveredProduct] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>(["All", "Doors", "Drawers", "Wall Panels", "Decorative"]);
+  const [categories, setCategories] = useState<string[]>(["All", "Doors", "Drawers", "Wall Panels", "Decorative", "Epoxy Resin Work"]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [inquiryForm, setInquiryForm] = useState({
     firstName: "",
@@ -185,7 +185,7 @@ export default function App() {
               <em style={{ fontStyle: "italic", color: "#C9A96E" }}>Becomes Art</em>
             </h1>
             <p className="text-foreground/60 mb-12 max-w-lg leading-relaxed" style={{ fontSize: "16px", fontWeight: 300 }}>
-              Bespoke doors, drawers, wall panels, and decorative pieces crafted with CNC precision and the hand of a master artisan — plus full wood sawmill work for every cut, dimension, and finish your project needs.
+              Bespoke doors, drawers, wall panels, decorative pieces, and epoxy resin river tables crafted with CNC precision and the hand of a master artisan — plus full wood sawmill work for every cut, dimension, and finish your project needs.
             </p>
             <div className="flex flex-wrap gap-4">
               <a
@@ -584,6 +584,7 @@ export default function App() {
                     <option>Drawers</option>
                     <option>Wall Panels</option>
                     <option>Decorative Pieces</option>
+                    <option>Epoxy Resin Work</option>
                     <option>Full Interior Package</option>
                   </select>
                 </div>

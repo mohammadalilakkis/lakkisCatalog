@@ -48,6 +48,111 @@ db.exec(`
   );
 `);
 
+const epoxyResinProducts = [
+  {
+    id: "LAK-009",
+    name: "Ocean Wave River Table",
+    category: "Epoxy Resin Work",
+    material: "Walnut Slab + Clear Epoxy",
+    finish: "High-Gloss Polish",
+    dimensions: "220 × 100 × 75 cm",
+    description:
+      "Live-edge walnut slab with hand-poured ocean-blue epoxy river. UV-stable resin with mirror finish and natural wood grain contrast.",
+    image:
+      "https://images.unsplash.com/photo-1741889836335-653b240f9fb3?w=600&h=750&fit=crop&auto=format",
+    featured: 1,
+    sort_order: 8,
+  },
+  {
+    id: "LAK-010",
+    name: "Blue River Coffee Table",
+    category: "Epoxy Resin Work",
+    material: "Oak + Pigmented Epoxy",
+    finish: "Satin Gloss",
+    dimensions: "120 × 60 × 45 cm",
+    description:
+      "Custom coffee table combining solid oak with flowing blue epoxy channels. Ideal for living rooms and reception areas.",
+    image:
+      "https://images.unsplash.com/photo-1617638924751-cc232f82ecf9?w=600&h=750&fit=crop&auto=format",
+    featured: 0,
+    sort_order: 9,
+  },
+  {
+    id: "LAK-011",
+    name: "Live Edge Resin Dining Table",
+    category: "Epoxy Resin Work",
+    material: "Natural Edge Wood + Epoxy",
+    finish: "Crystal Clear Coat",
+    dimensions: "240 × 110 × 78 cm",
+    description:
+      "Full-size dining table with preserved live edge and crystal-clear resin fill. Built for daily use with a durable protective top coat.",
+    image:
+      "https://images.unsplash.com/photo-1633435597188-27c1e70f329d?w=600&h=750&fit=crop&auto=format",
+    featured: 0,
+    sort_order: 10,
+  },
+  {
+    id: "LAK-012",
+    name: "Floral Inlay Epoxy Table",
+    category: "Epoxy Resin Work",
+    material: "Hardwood + Decorative Epoxy",
+    finish: "Gloss Lacquer",
+    dimensions: "180 × 90 × 75 cm",
+    description:
+      "Decorative epoxy inlay with embedded botanical detail over premium hardwood. A statement centerpiece for dining or hospitality spaces.",
+    image:
+      "https://images.unsplash.com/photo-1633435597643-601bb3efc197?w=600&h=750&fit=crop&auto=format",
+    featured: 0,
+    sort_order: 11,
+  },
+  {
+    id: "LAK-013",
+    name: "River Console Table",
+    category: "Epoxy Resin Work",
+    material: "Teak + Teal Epoxy",
+    finish: "Hand-Rubbed Oil + Resin Top",
+    dimensions: "160 × 45 × 85 cm",
+    description:
+      "Slim console with teal epoxy river running through natural teak. Perfect for entryways, corridors, and boutique interiors.",
+    image:
+      "https://images.unsplash.com/photo-1617638717732-a3ef01769ff2?w=600&h=750&fit=crop&auto=format",
+    featured: 0,
+    sort_order: 12,
+  },
+  {
+    id: "LAK-014",
+    name: "Custom Epoxy Countertop",
+    category: "Epoxy Resin Work",
+    material: "Wood Base + Epoxy Surface",
+    finish: "Food-Safe Gloss (on request)",
+    dimensions: "Custom sizing available",
+    description:
+      "Bespoke epoxy countertops and bar tops with wood integration. Heat-resistant, seamless finish for kitchens, cafés, and retail counters.",
+    image:
+      "https://images.unsplash.com/photo-1590529989936-f6efdf774c23?w=600&h=750&fit=crop&auto=format",
+    featured: 0,
+    sort_order: 13,
+  },
+];
+
+function insertEpoxyResinProducts() {
+  const epoxyInsert = db.prepare(`
+    INSERT INTO products (id, name, category, material, finish, dimensions, description, image, featured, sort_order)
+    VALUES (@id, @name, @category, @material, @finish, @dimensions, @description, @image, @featured, @sort_order)
+  `);
+
+  const seedEpoxy = db.transaction((products) => {
+    for (const product of products) {
+      const exists = db.prepare("SELECT id FROM products WHERE id = ?").get(product.id);
+      if (!exists) {
+        epoxyInsert.run(product);
+      }
+    }
+  });
+
+  seedEpoxy(epoxyResinProducts);
+}
+
 const productCount = db.prepare("SELECT COUNT(*) as count FROM products").get();
 
 if (productCount.count === 0) {
@@ -169,6 +274,7 @@ if (productCount.count === 0) {
       featured: 1,
       sort_order: 7,
     },
+    ...epoxyResinProducts,
   ];
 
   const seedMany = db.transaction((products) => {
@@ -436,3 +542,11 @@ export function getSiteAnalytics() {
 }
 
 export default db;
+
+const epoxyResinCount = db
+  .prepare("SELECT COUNT(*) as count FROM products WHERE category = 'Epoxy Resin Work'")
+  .get().count;
+
+if (epoxyResinCount === 0) {
+  insertEpoxyResinProducts();
+}

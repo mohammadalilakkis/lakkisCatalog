@@ -19,7 +19,7 @@ import {
   login,
 } from "./api";
 
-const CATEGORY_OPTIONS = ["Doors", "Drawers", "Wall Panels", "Decorative"];
+const CATEGORY_OPTIONS = ["Doors", "Drawers", "Wall Panels", "Decorative", "Epoxy Resin Work"];
 type AdminTab = "catalog" | "inquiries" | "analytics";
 
 function formatBytes(bytes: number) {
