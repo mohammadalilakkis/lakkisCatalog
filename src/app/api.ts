@@ -85,6 +85,9 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401 && token) {
+      clearToken();
+    }
     throw new Error(data.error || `Request failed (${res.status})`);
   }
 
@@ -166,4 +169,8 @@ export async function deleteInquiry(id: number) {
 
 export async function fetchAnalytics() {
   return request<{ analytics: SiteAnalytics }>("/api/analytics");
+}
+
+export async function verifySession() {
+  return request<{ ok: boolean }>("/api/auth/verify");
 }

@@ -17,6 +17,7 @@ import {
   getToken,
   clearToken,
   login,
+  verifySession,
 } from "./api";
 
 const CATEGORY_OPTIONS = ["Doors", "Drawers", "Wall Panels", "Decorative", "Epoxy Resin Work"];
@@ -302,7 +303,7 @@ function ProductForm({
   );
 }
 
-function InquiriesPanel() {
+function InquiriesPanel({ onSessionExpired }: { onSessionExpired: () => void }) {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<number | null>(null);
@@ -313,6 +314,10 @@ function InquiriesPanel() {
       const data = await fetchInquiries();
       setInquiries(data.inquiries);
     } catch (err) {
+      if (err instanceof Error && err.message === "Unauthorized") {
+        onSessionExpired();
+        return;
+      }
       alert(err instanceof Error ? err.message : "Failed to load inquiries");
     } finally {
       setLoading(false);
@@ -442,7 +447,7 @@ function StatCard({ label, value, hint }: { label: string; value: string | numbe
   );
 }
 
-function AnalyticsPanel() {
+function AnalyticsPanel({ onSessionExpired }: { onSessionExpired: () => void }) {
   const [analytics, setAnalytics] = useState<SiteAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -452,6 +457,10 @@ function AnalyticsPanel() {
       const data = await fetchAnalytics();
       setAnalytics(data.analytics);
     } catch (err) {
+      if (err instanceof Error && err.message === "Unauthorized") {
+        onSessionExpired();
+        return;
+      }
       alert(err instanceof Error ? err.message : "Failed to load analytics");
     } finally {
       setLoading(false);
@@ -608,17 +617,31 @@ export default function Admin() {
   const [editing, setEditing] = useState<Product | null | "new">(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  const handleSessionExpired = useCallback(() => {
+    clearToken();
+    setAuthenticated(false);
+  }, []);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    verifySession().catch(() => handleSessionExpired());
+  }, [handleSessionExpired]);
+
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchProducts();
       setProducts(data.products);
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.message === "Unauthorized") {
+        handleSessionExpired();
+        return;
+      }
       if (!getToken()) setAuthenticated(false);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [handleSessionExpired]);
 
   useEffect(() => {
     if (authenticated && activeTab === "catalog") loadProducts();
@@ -705,8 +728,8 @@ export default function Admin() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-10">
-        {activeTab === "inquiries" && <InquiriesPanel />}
-        {activeTab === "analytics" && <AnalyticsPanel />}
+        {activeTab === "inquiries" && <InquiriesPanel onSessionExpired={handleSessionExpired} />}
+        {activeTab === "analytics" && <AnalyticsPanel onSessionExpired={handleSessionExpired} />}
         {activeTab === "catalog" && (
           <>
         {loading ? (

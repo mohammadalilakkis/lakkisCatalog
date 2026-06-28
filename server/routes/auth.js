@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createSession } from "../middleware/auth.js";
+import { createSession, requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -13,6 +13,10 @@ router.post("/login", (req, res) => {
 
   const token = createSession();
   res.json({ token });
+});
+
+router.get("/verify", requireAuth, (_req, res) => {
+  res.json({ ok: true });
 });
 
 export default router;
